@@ -1,7 +1,7 @@
+use rayon::prelude::*;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
-use rayon::prelude::*;
 
 #[derive(Debug)]
 struct Sf2Error(String);
@@ -35,7 +35,7 @@ struct SampleHeader {
 
 impl SampleHeader {
     fn load_from_bytes(data: &[u8]) -> Result<Vec<SampleHeader>, Sf2Error> {
-        if data.len() % 46 != 0 {
+        if !data.len().is_multiple_of(46) {
             return Err(Sf2Error("Invalid sample header size".to_string()));
         }
 
@@ -69,9 +69,7 @@ impl SampleHeader {
         }
 
         // Remove the terminal record (EOS - End of Samples, marked by empty name or name "EOS")
-        headers.retain(|h| {
-            !h.name.is_empty() && h.name != "EOS" && h.start < h.end
-        });
+        headers.retain(|h| !h.name.is_empty() && h.name != "EOS" && h.start < h.end);
 
         Ok(headers)
     }
@@ -102,7 +100,7 @@ impl<R: Read + Seek> Sf2Parser<R> {
         self.reader.read_exact(&mut data)?;
 
         // Align to even boundary
-        if size % 2 != 0 {
+        if !size.is_multiple_of(2) {
             let mut dummy = [0u8; 1];
             self.reader.read_exact(&mut dummy)?;
         }
@@ -175,8 +173,7 @@ impl<R: Read + Seek> Sf2Parser<R> {
                     }
                 } else {
                     // Skip other LIST types
-                    self.reader
-                        .seek(SeekFrom::Current(chunk.size as i64 - 4))?;
+                    self.reader.seek(SeekFrom::Current(chunk.size as i64 - 4))?;
                 }
             } else {
                 // Skip unknown chunks
@@ -252,10 +249,7 @@ fn sanitize_filename(name: &str) -> String {
     }
 }
 
-fn extract_samples(
-    sf2_path: &Path,
-    output_dir: &Path,
-) -> Result<Vec<String>, Sf2Error> {
+fn extract_samples(sf2_path: &Path, output_dir: &Path) -> Result<Vec<String>, Sf2Error> {
     let mut file = File::open(sf2_path)?;
     let mut parser = Sf2Parser::new(&mut file);
 
@@ -313,10 +307,7 @@ fn extract_samples(
     Ok(extracted_files)
 }
 
-fn process_sf2_file(
-    sf2_path: &Path,
-    output_base: &Path,
-) -> Result<(String, usize), Sf2Error> {
+fn process_sf2_file(sf2_path: &Path, output_base: &Path) -> Result<(String, usize), Sf2Error> {
     let file_name = sf2_path
         .file_stem()
         .ok_or_else(|| Sf2Error("Invalid filename".to_string()))?
@@ -341,9 +332,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("  output_directory: Directory for extracted samples (default: ./output)");
         eprintln!();
         eprintln!("Examples:");
-        eprintln!("  {} soundfont.sf2              # Extract to ./output/soundfont/", args[0]);
-        eprintln!("  {} ./sf2_files/               # Batch convert all .sf2 files", args[0]);
-        eprintln!("  {} ./sf2_files/ ./extracted/  # Specify output directory", args[0]);
+        eprintln!(
+            "  {} soundfont.sf2              # Extract to ./output/soundfont/",
+            args[0]
+        );
+        eprintln!(
+            "  {} ./sf2_files/               # Batch convert all .sf2 files",
+            args[0]
+        );
+        eprintln!(
+            "  {} ./sf2_files/ ./extracted/  # Specify output directory",
+            args[0]
+        );
         std::process::exit(1);
     }
 
@@ -389,7 +389,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Found {} .sf2 file(s) to process", sf2_files.len());
     println!("Output directory: {}", output_base.display());
-    println!("Using {} threads for parallel processing", rayon::current_num_threads());
+    println!(
+        "Using {} threads for parallel processing",
+        rayon::current_num_threads()
+    );
     println!();
 
     // Process files in parallel
@@ -438,12 +441,24 @@ mod tests {
         assert_eq!(sanitize_filename("normal_name"), "normal_name");
         assert_eq!(sanitize_filename("name with spaces"), "name with spaces");
         assert_eq!(sanitize_filename("name/with/slashes"), "name_with_slashes");
-        assert_eq!(sanitize_filename("name\\with\\backslashes"), "name_with_backslashes");
+        assert_eq!(
+            sanitize_filename("name\\with\\backslashes"),
+            "name_with_backslashes"
+        );
         assert_eq!(sanitize_filename("name:with:colons"), "name_with_colons");
-        assert_eq!(sanitize_filename("name*with*asterisks"), "name_with_asterisks");
-        assert_eq!(sanitize_filename("name?with?questions"), "name_with_questions");
+        assert_eq!(
+            sanitize_filename("name*with*asterisks"),
+            "name_with_asterisks"
+        );
+        assert_eq!(
+            sanitize_filename("name?with?questions"),
+            "name_with_questions"
+        );
         assert_eq!(sanitize_filename("name\"with\"quotes"), "name_with_quotes");
-        assert_eq!(sanitize_filename("name<with>brackets"), "name_with_brackets");
+        assert_eq!(
+            sanitize_filename("name<with>brackets"),
+            "name_with_brackets"
+        );
         assert_eq!(sanitize_filename("name|with|pipe"), "name_with_pipe");
         assert_eq!(sanitize_filename("file.wav"), "file");
         assert_eq!(sanitize_filename("file.WAV"), "file");
