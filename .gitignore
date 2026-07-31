@@ -1,0 +1,20 @@
+# Rust build artifacts
+target/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test output directories
+output/
+test_output/
+output_test/
+
+# Binary files (if not installing globally)
+*.wav
