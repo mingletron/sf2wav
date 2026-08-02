@@ -90,26 +90,24 @@ When processing a directory, the tool creates the following structure:
 
 ```
 output/
+├── samples.csv               (consolidated metadata for all samples)
 ├── AccGtr02/
 │   ├── Sample 001.wav        (mono)
 │   ├── Sample 002.wav        (mono)
-│   ├── samples.csv           (metadata)
 │   └── ...
 ├── BassSynth12/
 │   ├── BassSynth12-1.wav     (stereo)
 │   ├── BassSynth12-2.wav     (stereo)
-│   ├── samples.csv           (metadata)
 │   └── ...
 └── HornFrMute11/
     ├── HornFrMute11-1.wav    (mono)
-    ├── samples.csv           (metadata)
     └── ...
 ```
 
 Each SF2 file gets its own folder. Samples are automatically detected as mono or stereo:
 - **Mono samples**: Extracted as single-channel WAV files
 - **Stereo samples**: Detected via SF2 sample linking and extracted as proper two-channel WAV files with interleaved L/R data
-- **CSV metadata**: A `samples.csv` file is generated with comprehensive sample information
+- **CSV metadata**: A single `samples.csv` file is generated at the output root with comprehensive sample information for ALL converted SF2 files
 
 ### CSV Metadata File
 
