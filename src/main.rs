@@ -513,7 +513,14 @@ fn extract_samples(sf2_path: &Path, output_dir: &Path) -> Result<Vec<String>, Sf
         } else {
             None
         };
-        write_wav(&mut output_file, sample_slice, header.sample_rate, 1, loop_start, loop_end)?;
+        write_wav(
+            &mut output_file,
+            sample_slice,
+            header.sample_rate,
+            1,
+            loop_start,
+            loop_end,
+        )?;
 
         extracted_files.push(filename.clone());
         println!(
@@ -903,7 +910,10 @@ mod tests {
 
         // Verify no smpl chunk when no loop points
         let output_str = String::from_utf8_lossy(&output);
-        assert!(!output_str.contains("smpl"), "Should not have smpl chunk without loop points");
+        assert!(
+            !output_str.contains("smpl"),
+            "Should not have smpl chunk without loop points"
+        );
     }
 
     #[test]
@@ -917,7 +927,10 @@ mod tests {
 
         // Verify smpl chunk is present
         let output_str = String::from_utf8_lossy(&output);
-        assert!(output_str.contains("smpl"), "Should have smpl chunk with loop points");
+        assert!(
+            output_str.contains("smpl"),
+            "Should have smpl chunk with loop points"
+        );
 
         // Verify smpl chunk structure
         let smpl_pos = output_str.find("smpl").unwrap();
