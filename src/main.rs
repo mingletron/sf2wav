@@ -445,7 +445,10 @@ fn sanitize_filename(name: &str) -> String {
     result
 }
 
-fn extract_samples(sf2_path: &Path, output_dir: &Path) -> Result<(Vec<String>, Vec<SampleMetadata>), Sf2Error> {
+fn extract_samples(
+    sf2_path: &Path,
+    output_dir: &Path,
+) -> Result<(Vec<String>, Vec<SampleMetadata>), Sf2Error> {
     let mut file = File::open(sf2_path)?;
     let mut parser = Sf2Parser::new(&mut file);
 
@@ -637,7 +640,10 @@ fn extract_samples(sf2_path: &Path, output_dir: &Path) -> Result<(Vec<String>, V
     Ok((extracted_files, metadata_list))
 }
 
-fn process_sf2_file(sf2_path: &Path, output_base: &Path) -> Result<(String, usize, Vec<SampleMetadata>), Sf2Error> {
+fn process_sf2_file(
+    sf2_path: &Path,
+    output_base: &Path,
+) -> Result<(String, usize, Vec<SampleMetadata>), Sf2Error> {
     let file_name = sf2_path
         .file_stem()
         .ok_or_else(|| Sf2Error("Invalid filename".to_string()))?
