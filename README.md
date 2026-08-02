@@ -115,6 +115,7 @@ The tool generates a `samples.csv` file in each output folder containing:
 
 | Column | Description |
 |--------|-------------|
+| SF2 File | Original SF2 filename |
 | Name | Original sample name from SF2 |
 | Filename | Output WAV filename |
 | Sample Rate | Sample rate in Hz |
