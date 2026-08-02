@@ -8,6 +8,7 @@ A fast, multithreaded Rust tool for extracting WAV files from SoundFont (.sf2) f
 
 - **Batch Processing**: Convert entire directories of SF2 files at once
 - **Stereo Support**: Automatically detects and extracts stereo samples as proper stereo WAV files
+- **Loop Point Preservation**: Preserves loop points from SF2 files into WAV files using the `smpl` chunk standard
 - **Multithreaded**: Automatically uses all CPU cores for parallel processing
 - **Organized Output**: Creates separate folders for each SoundFont's samples
 - **Preserves Metadata**: Maintains sample rates and other audio properties
@@ -102,7 +103,9 @@ The tool parses the SF2 file format:
 2. Extracts sample data from the `smpl` chunk
 3. Reads sample headers from the `shdr` chunk to identify individual samples
 4. Detects stereo sample pairs using the `sample_link` field in sample headers
-5. Saves samples as 16-bit PCM WAV files (mono or stereo as appropriate)
+5. Reads loop points (`start_loop` and `end_loop`) from sample headers
+6. Saves samples as 16-bit PCM WAV files (mono or stereo as appropriate)
+7. Writes loop points to WAV files using the standard `smpl` chunk format
 
 ### Stereo Sample Handling
 
@@ -111,6 +114,14 @@ SoundFont files can contain stereo samples stored as pairs of mono samples. The 
 - Identifies left/right channels by name suffixes (`-L`/`-R`, `_L`/`_R`)
 - Interleaves left and right channel data (LRLRLR...) into proper stereo WAV files
 - Automatically removes stereo suffixes from output filenames
+
+### Loop Point Preservation
+
+Loop points define a section of the sample that should repeat during playback. The tool:
+- Reads loop start and end points from SF2 sample headers
+- Writes loop points to WAV files using the standard `smpl` chunk format
+- The `smpl` chunk is supported by many DAWs (Logic Pro, Ableton Live, etc.)
+- If no loop points are defined in the SF2 file, no `smpl` chunk is added
 
 ## Performance
 
@@ -143,14 +154,15 @@ cargo test -- --nocapture
 - **Audio Format**: 16-bit PCM WAV files (mono or stereo)
 - **Sample Rates**: Preserved from original SF2 file
 - **Stereo Detection**: Automatic via `sample_link` field and name analysis
+- **Loop Points**: Preserved using WAV `smpl` chunk (de facto standard)
 - **Dependencies**: Only Rayon for parallel processing
 - **Platforms**: macOS, Linux, Windows (any Rust-supported platform)
 
 ## Limitations
 
-- Does not preserve loop points in the WAV output
 - Does not convert sample rates (preserves original rates)
 - Stereo sample pairing depends on correct SF2 metadata (some poorly-formed files may not pair correctly)
+- Loop points are preserved only if defined in the SF2 file (many SF2 files don't define loop points)
 
 ## Contributing
 
