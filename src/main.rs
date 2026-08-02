@@ -6,9 +6,17 @@ use std::path::Path;
 #[derive(Debug)]
 struct Sf2Error(String);
 
+impl std::error::Error for Sf2Error {}
+
 impl From<std::io::Error> for Sf2Error {
     fn from(err: std::io::Error) -> Self {
         Sf2Error(err.to_string())
+    }
+}
+
+impl std::fmt::Display for Sf2Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -629,7 +637,7 @@ fn extract_samples(sf2_path: &Path, output_dir: &Path) -> Result<(Vec<String>, V
     Ok((extracted_files, metadata_list))
 }
 
-fn process_sf2_file(sf2_path: &Path, output_base: &Path) -> Result<(String, usize), Sf2Error> {
+fn process_sf2_file(sf2_path: &Path, output_base: &Path) -> Result<(String, usize, Vec<SampleMetadata>), Sf2Error> {
     let file_name = sf2_path
         .file_stem()
         .ok_or_else(|| Sf2Error("Invalid filename".to_string()))?
@@ -643,15 +651,7 @@ fn process_sf2_file(sf2_path: &Path, output_base: &Path) -> Result<(String, usiz
     println!("Processing: {}", sf2_path.display());
     let (files, metadata) = extract_samples(sf2_path, &output_dir)?;
 
-    // Write CSV file with sample metadata
-    if !metadata.is_empty() {
-        let csv_path = output_dir.join("samples.csv");
-        let mut csv_file = File::create(&csv_path)?;
-        write_csv(&mut csv_file, &metadata)?;
-        println!("  CSV metadata written to: {}", csv_path.display());
-    }
-
-    Ok((file_name, files.len()))
+    Ok((file_name, files.len(), metadata))
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -736,19 +736,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut total_samples = 0;
     let mut successful = 0;
     let mut failed = 0;
+    let mut all_metadata: Vec<SampleMetadata> = Vec::new();
 
     for result in results {
         match result {
-            Ok((name, count)) => {
+            Ok((name, count, metadata)) => {
                 println!("  ✓ {}: {} samples extracted", name, count);
                 total_samples += count;
                 successful += 1;
+                all_metadata.extend(metadata);
             }
             Err(e) => {
                 eprintln!("  ✗ Error: {}", e.0);
                 failed += 1;
             }
         }
+    }
+
+    // Write consolidated CSV file for all samples
+    if !all_metadata.is_empty() {
+        let csv_path = output_base.join("samples.csv");
+        let mut csv_file = File::create(&csv_path)?;
+        write_csv(&mut csv_file, &all_metadata)?;
+        println!("  CSV metadata written to: {}", csv_path.display());
     }
 
     println!("========================================");
