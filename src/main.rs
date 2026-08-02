@@ -761,6 +761,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Write consolidated CSV file for all samples
     if !all_metadata.is_empty() {
+        // Ensure output directory exists
+        std::fs::create_dir_all(&output_base)?;
+
         let csv_path = output_base.join("samples.csv");
         let mut csv_file = File::create(&csv_path)?;
         write_csv(&mut csv_file, &all_metadata)?;
