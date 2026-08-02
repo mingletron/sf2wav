@@ -363,6 +363,7 @@ fn write_smpl_chunk<W: Write>(
 
 #[derive(Debug, Clone)]
 struct SampleMetadata {
+    sf2_filename: String,
     name: String,
     filename: String,
     sample_rate: u32,
@@ -385,14 +386,15 @@ fn write_csv<W: Write>(writer: &mut W, metadata: &[SampleMetadata]) -> Result<()
     // Write CSV header
     writeln!(
         writer,
-        "Name,Filename,Sample Rate,Channels,Num Samples,Duration (seconds),Start,End,Start Loop,End Loop,Has Loop,Original Key,Correction,Sample Type,Is Stereo Pair,Linked Sample"
+        "SF2 File,Name,Filename,Sample Rate,Channels,Num Samples,Duration (seconds),Start,End,Start Loop,End Loop,Has Loop,Original Key,Correction,Sample Type,Is Stereo Pair,Linked Sample"
     )?;
 
     // Write CSV data rows
     for m in metadata {
         writeln!(
             writer,
-            "\"{}\",\"{}\",{},{},\"{}\",{:.3},{},{},{},{},{},\"{}\",{},\"{}\",{},\"{}\"",
+            "\"{}\",\"{}\",\"{}\",{},{},\"{}\",{:.3},{},{},{},{},{},\"{}\",{},\"{}\",{},\"{}\"",
+            m.sf2_filename,
             m.name,
             m.filename,
             m.sample_rate,
@@ -448,6 +450,7 @@ fn sanitize_filename(name: &str) -> String {
 fn extract_samples(
     sf2_path: &Path,
     output_dir: &Path,
+    sf2_filename: String,
 ) -> Result<(Vec<String>, Vec<SampleMetadata>), Sf2Error> {
     let mut file = File::open(sf2_path)?;
     let mut parser = Sf2Parser::new(&mut file);
@@ -537,6 +540,7 @@ fn extract_samples(
 
         // Collect metadata for stereo sample
         metadata_list.push(SampleMetadata {
+            sf2_filename: sf2_filename.clone(),
             name: left_header.name.clone(),
             filename: filename.clone(),
             sample_rate: left_header.sample_rate,
@@ -618,6 +622,7 @@ fn extract_samples(
 
         // Collect metadata for mono sample
         metadata_list.push(SampleMetadata {
+            sf2_filename: sf2_filename.clone(),
             name: header.name.clone(),
             filename: filename.clone(),
             sample_rate: header.sample_rate,
@@ -650,12 +655,19 @@ fn process_sf2_file(
         .to_string_lossy()
         .to_string();
 
+    // Get the full filename with extension (e.g., "Anvil11.sf2")
+    let sf2_filename = sf2_path
+        .file_name()
+        .ok_or_else(|| Sf2Error("Invalid filename".to_string()))?
+        .to_string_lossy()
+        .to_string();
+
     // Create a subdirectory for this SF2 file's samples
     let output_dir = output_base.join(&file_name);
     std::fs::create_dir_all(&output_dir)?;
 
     println!("Processing: {}", sf2_path.display());
-    let (files, metadata) = extract_samples(sf2_path, &output_dir)?;
+    let (files, metadata) = extract_samples(sf2_path, &output_dir, sf2_filename)?;
 
     Ok((file_name, files.len(), metadata))
 }
