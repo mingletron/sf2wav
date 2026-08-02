@@ -353,6 +353,60 @@ fn write_smpl_chunk<W: Write>(
     Ok(())
 }
 
+#[derive(Debug, Clone)]
+struct SampleMetadata {
+    name: String,
+    filename: String,
+    sample_rate: u32,
+    channels: u16,
+    num_samples: usize,
+    duration_seconds: f64,
+    start: u32,
+    end: u32,
+    start_loop: u32,
+    end_loop: u32,
+    has_loop: bool,
+    original_key: u8,
+    correction: i8,
+    sample_type: String,
+    is_stereo_pair: bool,
+    linked_sample: Option<String>,
+}
+
+fn write_csv<W: Write>(writer: &mut W, metadata: &[SampleMetadata]) -> Result<(), Sf2Error> {
+    // Write CSV header
+    writeln!(
+        writer,
+        "Name,Filename,Sample Rate,Channels,Num Samples,Duration (seconds),Start,End,Start Loop,End Loop,Has Loop,Original Key,Correction,Sample Type,Is Stereo Pair,Linked Sample"
+    )?;
+
+    // Write CSV data rows
+    for m in metadata {
+        writeln!(
+            writer,
+            "\"{}\",\"{}\",{},{},\"{}\",{:.3},{},{},{},{},{},\"{}\",{},\"{}\",{},\"{}\"",
+            m.name,
+            m.filename,
+            m.sample_rate,
+            m.channels,
+            m.num_samples,
+            m.duration_seconds,
+            m.start,
+            m.end,
+            m.start_loop,
+            m.end_loop,
+            m.has_loop,
+            m.original_key,
+            m.correction,
+            m.sample_type,
+            m.is_stereo_pair,
+            m.linked_sample.as_deref().unwrap_or("")
+        )?;
+    }
+
+    Ok(())
+}
+
 fn sanitize_filename(name: &str) -> String {
     let sanitized: String = name
         .chars()
@@ -383,7 +437,7 @@ fn sanitize_filename(name: &str) -> String {
     result
 }
 
-fn extract_samples(sf2_path: &Path, output_dir: &Path) -> Result<Vec<String>, Sf2Error> {
+fn extract_samples(sf2_path: &Path, output_dir: &Path) -> Result<(Vec<String>, Vec<SampleMetadata>), Sf2Error> {
     let mut file = File::open(sf2_path)?;
     let mut parser = Sf2Parser::new(&mut file);
 
@@ -393,6 +447,7 @@ fn extract_samples(sf2_path: &Path, output_dir: &Path) -> Result<Vec<String>, Sf
     std::fs::create_dir_all(output_dir)?;
 
     let mut extracted_files = Vec::new();
+    let mut metadata_list = Vec::new();
 
     // Convert raw bytes to i16 samples
     let all_samples: Vec<i16> = raw_sample_data
@@ -468,6 +523,26 @@ fn extract_samples(sf2_path: &Path, output_dir: &Path) -> Result<Vec<String>, Sf
             "Extracted (stereo): {} ({} Hz, {} frames)",
             filename, left_header.sample_rate, num_frames
         );
+
+        // Collect metadata for stereo sample
+        metadata_list.push(SampleMetadata {
+            name: left_header.name.clone(),
+            filename: filename.clone(),
+            sample_rate: left_header.sample_rate,
+            channels: 2,
+            num_samples: stereo_samples.len(),
+            duration_seconds: num_frames as f64 / left_header.sample_rate as f64,
+            start: left_header.start,
+            end: left_header.end,
+            start_loop: left_header.start_loop,
+            end_loop: left_header.end_loop,
+            has_loop: loop_start.is_some() && loop_end.is_some(),
+            original_key: left_header.original_key,
+            correction: left_header.correction,
+            sample_type: format!("0x{:04X}", left_header.sample_type),
+            is_stereo_pair: true,
+            linked_sample: Some(right_header.name.clone()),
+        });
     }
 
     // Extract remaining mono samples
@@ -529,9 +604,29 @@ fn extract_samples(sf2_path: &Path, output_dir: &Path) -> Result<Vec<String>, Sf
             header.sample_rate,
             sample_slice.len()
         );
+
+        // Collect metadata for mono sample
+        metadata_list.push(SampleMetadata {
+            name: header.name.clone(),
+            filename: filename.clone(),
+            sample_rate: header.sample_rate,
+            channels: 1,
+            num_samples: sample_slice.len(),
+            duration_seconds: sample_slice.len() as f64 / header.sample_rate as f64,
+            start: header.start,
+            end: header.end,
+            start_loop: header.start_loop,
+            end_loop: header.end_loop,
+            has_loop: loop_start.is_some() && loop_end.is_some(),
+            original_key: header.original_key,
+            correction: header.correction,
+            sample_type: format!("0x{:04X}", header.sample_type),
+            is_stereo_pair: false,
+            linked_sample: None,
+        });
     }
 
-    Ok(extracted_files)
+    Ok((extracted_files, metadata_list))
 }
 
 fn process_sf2_file(sf2_path: &Path, output_base: &Path) -> Result<(String, usize), Sf2Error> {
@@ -546,7 +641,16 @@ fn process_sf2_file(sf2_path: &Path, output_base: &Path) -> Result<(String, usiz
     std::fs::create_dir_all(&output_dir)?;
 
     println!("Processing: {}", sf2_path.display());
-    let files = extract_samples(sf2_path, &output_dir)?;
+    let (files, metadata) = extract_samples(sf2_path, &output_dir)?;
+
+    // Write CSV file with sample metadata
+    if !metadata.is_empty() {
+        let csv_path = output_dir.join("samples.csv");
+        let mut csv_file = File::create(&csv_path)?;
+        write_csv(&mut csv_file, &metadata)?;
+        println!("  CSV metadata written to: {}", csv_path.display());
+    }
+
     Ok((file_name, files.len()))
 }
 
