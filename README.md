@@ -9,6 +9,7 @@ A fast, multithreaded Rust tool for extracting WAV files from SoundFont (.sf2) f
 - **Batch Processing**: Convert entire directories of SF2 files at once
 - **Stereo Support**: Automatically detects and extracts stereo samples as proper stereo WAV files
 - **Loop Point Preservation**: Preserves loop points from SF2 files into WAV files using the `smpl` chunk standard
+- **CSV Export**: Generates a comprehensive CSV file with sample metadata (sample rate, duration, loop points, MIDI info, etc.)
 - **Multithreaded**: Automatically uses all CPU cores for parallel processing
 - **Organized Output**: Creates separate folders for each SoundFont's samples
 - **Preserves Metadata**: Maintains sample rates and other audio properties
@@ -61,16 +62,26 @@ Processing: /path/to/sf2_files/BassSynth12.sf2
 Extracted (stereo): BassSynth12-1.wav (44100 Hz, 60928 frames)
 Extracted (stereo): BassSynth12-2.wav (44100 Hz, 62976 frames)
 Extracted (mono): BassSynth12-3.wav (44100 Hz, 63488 samples)
+  CSV metadata written to: ./output/BassSynth12/samples.csv
 
 Processing: /path/to/sf2_files/Piano.sf2
 Extracted (mono): Piano-001.wav (44100 Hz, 45632 samples)
 Extracted (mono): Piano-002.wav (44100 Hz, 51200 samples)
+  CSV metadata written to: ./output/Piano/samples.csv
 
 ========================================
 Batch conversion complete!
   Successful: 2 files
   Total samples extracted: 5
   Output directory: ./output
+```
+
+### Example CSV Content
+
+```csv
+Name,Filename,Sample Rate,Channels,Num Samples,Duration (seconds),Start,End,Start Loop,End Loop,Has Loop,Original Key,Correction,Sample Type,Is Stereo Pair,Linked Sample
+"BassSynth12-1.wav-L","BassSynth12-1.wav",44100,2,"121856",1.382,0,60928,0,60927,false,"53",23,"0x0004",true,"BassSynth12-1.wav-R"
+"BassSynth12-2.wav-L","BassSynth12-2.wav",44100,2,"125952",1.428,121948,184924,121948,184923,true,"60",23,"0x0004",true,"BassSynth12-2.wav-R"
 ```
 
 ## Output Structure
@@ -82,19 +93,46 @@ output/
 ├── AccGtr02/
 │   ├── Sample 001.wav        (mono)
 │   ├── Sample 002.wav        (mono)
+│   ├── samples.csv           (metadata)
 │   └── ...
 ├── BassSynth12/
 │   ├── BassSynth12-1.wav     (stereo)
 │   ├── BassSynth12-2.wav     (stereo)
+│   ├── samples.csv           (metadata)
 │   └── ...
 └── HornFrMute11/
     ├── HornFrMute11-1.wav    (mono)
+    ├── samples.csv           (metadata)
     └── ...
 ```
 
 Each SF2 file gets its own folder. Samples are automatically detected as mono or stereo:
 - **Mono samples**: Extracted as single-channel WAV files
 - **Stereo samples**: Detected via SF2 sample linking and extracted as proper two-channel WAV files with interleaved L/R data
+- **CSV metadata**: A `samples.csv` file is generated with comprehensive sample information
+
+### CSV Metadata File
+
+The tool generates a `samples.csv` file in each output folder containing:
+
+| Column | Description |
+|--------|-------------|
+| Name | Original sample name from SF2 |
+| Filename | Output WAV filename |
+| Sample Rate | Sample rate in Hz |
+| Channels | Number of channels (1=mono, 2=stereo) |
+| Num Samples | Total number of samples |
+| Duration (seconds) | Sample duration |
+| Start | Start point in the SF2 file |
+| End | End point in the SF2 file |
+| Start Loop | Loop start point (if defined) |
+| End Loop | Loop end point (if defined) |
+| Has Loop | Whether loop points are defined |
+| Original Key | MIDI note number |
+| Correction | Pitch correction in cents |
+| Sample Type | SF2 sample type (hex) |
+| Is Stereo Pair | Whether sample is part of a stereo pair |
+| Linked Sample | Name of linked sample (for stereo pairs) |
 
 ## How It Works
 
@@ -155,6 +193,7 @@ cargo test -- --nocapture
 - **Sample Rates**: Preserved from original SF2 file
 - **Stereo Detection**: Automatic via `sample_link` field and name analysis
 - **Loop Points**: Preserved using WAV `smpl` chunk (de facto standard)
+- **CSV Export**: Comma-separated values with quoted strings, compatible with Excel and Google Sheets
 - **Dependencies**: Only Rayon for parallel processing
 - **Platforms**: macOS, Linux, Windows (any Rust-supported platform)
 
